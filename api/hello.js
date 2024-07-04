@@ -1,7 +1,8 @@
 const express = require('express');
+const axios = require('axios');
 const app = express();
 
-app.get('/api/hello', (req, res) => {
+app.get('/api/hello', async (req, res) => {
     try {
         const visitorName = req.query.visitor_name || 'Guest';
         let clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || '127.0.0.1';
@@ -10,12 +11,25 @@ app.get('/api/hello', (req, res) => {
             clientIp = clientIp.split(',')[0].trim();
         }
 
-        const location = 'New York'; // Hardcoded location for demonstration
-        const greeting = `Hello, ${visitorName}! The temperature is 11 degrees Celsius in ${location}.`;
+        // Fetch location details from ipinfo.io
+        const ipInfoResponse = await axios.get(`https://ipinfo.io/${clientIp}?token=1283e7f34ccd89`);
+        const { city, loc } = ipInfoResponse.data;
+
+        // Extract latitude and longitude
+        const [latitude, longitude] = loc.split(',');
+
+        // Fetch weather data from OpenWeatherMap API
+        const openWeatherMapApiKey = 'e2f65da2c94ea97409a55f054a55faa9';
+        const weatherResponse = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&appid=${openWeatherMapApiKey}&units=metric`);
+
+        const temperature = weatherResponse.data.main.temp;
+        const weatherDescription = weatherResponse.data.weather[0].description;
+
+        const greeting = `Hello, ${visitorName}! It's ${weatherDescription} and ${temperature} degrees Celsius in ${city}.`;
 
         res.status(200).json({
             client_ip: clientIp,
-            location,
+            location: city,
             greeting
         });
     } catch (error) {
